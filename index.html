@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<title>CSS Template</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+
+<script src="./lib/js/fhir-client.js"></script>
+<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
+<script src ="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+<link href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.css"rel="stylesheet" type="text/css">
+
+<!-- <script src="./lib/js/get-data-test.js"></script>-->
+<script src="./lib/js/get-data.js"></script>
+
+<style>
+    body, h1,h2,h3,h4,h5,h6 {font-family: "Montserrat", sans-serif}
+    .w3-row-padding img {margin-bottom: 12px}
+    /* Set the width of the sidebar to 120px */
+    .w3-sidebar {width: 120px;background: #222;}
+    /* Add a left margin to the "page content" that matches the width of the sidebar (120px) */
+    #main {margin-left: 120px}
+    /* Remove margins from "page content" on small screens */
+    @media only screen and (max-width: 600px) {#main {margin-left: 0}}
+
+    path.domain { stroke:teal; }
+.tick text { stroke: teal; font-size: larger; }
+.c3-legend-item text { stroke: teal; }
+.c3-axis{stroke: teal;}
+.c3 .c3-axis-x path,
+.c3 .c3-axis-x line {
+  stroke: white;
+}
+
+.c3 .c3-axis-y path,
+.c3 .c3-axis-y line {
+  stroke: white;
+}
+</style>
+
+
+
+</head>
+<body  class="w3-black">
+    <!-- Icon Bar (Sidebar - hidden on small screens) -->
+    <nav class="w3-sidebar w3-bar-block w3-small w3-hide-small w3-center">
+      <a href="#home" class="w3-bar-item w3-button w3-padding-large w3-black">
+        <i class="fa fa-home w3-xxlarge"></i>
+        <p>HOME</p>
+      </a>
+      <a href="#about" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+        <i class="fa fa-user w3-xxlarge"></i>
+        <p>ABOUT</p>
+      </a>
+      <a href="#readings" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+        <i class="fa fa-eye w3-xxlarge"></i>
+        <p>READINGS</p>
+      </a>
+      <a href="#charts" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+        <i class="fa fa-line-chart" w3-xxlarge"></i>
+        <p>CHARTS</p>
+      </a>
+      <button id="downloadbtn" onclick="downloadRecord()" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
+        <i class="fa fa-download w3-xxlarge"></i>
+        <p>DOWNLOAD RECORD</p>
+      </button>
+    </nav>
+
+    <!-- Navbar on small screens (Hidden on medium and large screens) -->
+    <div class="w3-top w3-hide-large w3-hide-medium" id="myNavbar">
+      <div class="w3-bar w3-black w3-opacity w3-hover-opacity-off w3-center w3-small">
+        <a href="#home" class="w3-bar-item w3-button" style="width:25% !important">HOME</a>
+        <a href="#about" class="w3-bar-item w3-button" style="width:25% !important">ABOUT</a>
+        <a href="#readings" class="w3-bar-item w3-button" style="width:25% !important">READINGS</a>
+        <a href="#charts" class="w3-bar-item w3-button" style="width:25% !important">CHARTS</a>
+        <button id="downloadbtn" onclick="downloadRecord()" class="w3-bar-item w3-button" style="width:25% !important">DOWNLOADS</button>
+      </div>
+    </div>
+
+    <!-- Page Content -->
+  <div class="w3-padding-large" id="home">
+    <!-- Header/Home -->
+    <header class="w3-container w3-padding-32 w3-center w3-black" id="home">
+      <h1 class="w3-jumbo" id="patient_top"><span class="w3-hide-small">Welcome</h1>
+      
+      <h2>Let's keep your heart healthy</h2>
+      <img src="./lib/bg-heart.jpg" alt="boy" class="w3-image" width="992" height="1108">
+      
+    </header>
+  </div>
+
+  <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="about">
+      <div class="w3-container  w3-text-teal w3-margin-bottom">
+        <h2 class="w3-text-white w3-padding-16"><b>My Profile</b></h2>
+        <div class="w3-container" style="display: flex;">
+          <h4 id ="patient_name" class="w3-text-grey">Gender</h6>
+        </div>
+        <div class="w3-container" style="display: flexbox;">
+          <h6 id ="gender" class="w3-text-grey">Gender</h6>
+          <span>  </span>
+          <h6 id ="dob" class="w3-text-grey">DOB</h6>
+          
+        </div>
+      </div>
+        
+
+        <div class="w3-container  w3-text-teal w3-margin-bottom">
+          
+          <div class="w3-container w3-cell" style="display: block;">
+            <h2 class="w3-text-grey w3-padding-16"><b>Vitals</b></h2>
+            <div class="w3-container">
+            <h6>Weight</h6>
+              <h6 id="weight"></h6>
+            <h6>Height</h6>
+              <h6 id="height"></h6>
+            </div>
+          </div>
+
+          <div class="w3-container w3-cell w3-text-teal w3-margin-bottom" style="display:block;">
+            <h2 class="w3-text-grey w3-padding-16">Conditions</h2>
+            <div class="w3-container">
+              <h6 id="cond_list"></h6>
+              
+            </div>
+          </div>
+        </div>
+  </div>
+  
+            
+     
+
+      <div class="w3-container w3-text-teal " style="display: none;" >
+            <h2 class="w3-text-grey w3-padding-16">Active Medications</h2>
+            <div class="w3-container">
+              <h6 id="med_list"></h6>
+              
+            </div>
+        </div>
+
+    </div>
+
+    
+    <!-- Readings Section -->
+    <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="readings">
+      
+      <div class="w3-container">
+        <h2 class="w3-text-grey w3-padding-16">READINGS</h2>
+        <p>Show readings for the month : <input type="month" id="datepicker"></p> <span> </span><button class="w3-btn w3-round w3-teal" id="filterBtn" onclick="filterReadings()">Submit</button>
+        
+        <div id="myDynamicTable"></div>
+
+      </div>
+
+      <div class="w3-container w3-margin-bottom">
+      <p class="w3-text-teal w3-large">Add new reading</p> 
+      <div id="myPopup">
+        <div>	 
+          <p>Systolic*</p>
+          <input type="text"  id="systolic">
+        </div>
+      
+        <div>
+          <p>Diastolic*</p>
+          <input type="text" id="diastolic">
+        </div>
+
+
+        <div class="badges">
+          <button class="w3-button w3-circle w3-teal w3-padding-large" id="send" onclick="addObservation()">+</button></br>
+        </div>
+
+      </div>
+      </div>
+      
+      
+    </div>
+
+    <!-- Charts Section -->
+    <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="charts">
+      <div class="w3-container">
+
+        <h2 class="w3-text-grey w3-padding-16">CHART</h2>
+        <button id="displayBPChartbtn" onclick="displayBPChart()">View Chart</button>
+          <div id ="chart"></div>
+      </div>
+    </div>
+
+   
+
+  <footer class="w3-container w3-teal w3-center w3-margin-top">
+    <p><a href="./terms.html" target="_blank">Terms and Conditions</a></p>
+    <p><a href="./Faq.html">FAQ</a></p>
+  </footer>
+    
+
+</body>
+</html>

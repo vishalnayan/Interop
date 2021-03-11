@@ -1,201 +1,534 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-<title>CSS Template</title>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="https://www.w3schools.com/w3css/4/w3.css">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Montserrat">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+//adapted from the cerner smart on fhir guide. updated to utalize client.js v2 library and FHIR R4
 
-<script src="./lib/js/fhir-client.js"></script>
-<script src="https://d3js.org/d3.v3.min.js" charset="utf-8"></script>
-<script src ="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.js"></script>
-<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
-<link href="https://cdnjs.cloudflare.com/ajax/libs/c3/0.4.11/c3.css"rel="stylesheet" type="text/css">
-
-<!-- <script src="./lib/js/get-data-test.js"></script>-->
-<script src="./lib/js/get-data.js"></script>
-
-<style>
-    body, h1,h2,h3,h4,h5,h6 {font-family: "Montserrat", sans-serif}
-    .w3-row-padding img {margin-bottom: 12px}
-    /* Set the width of the sidebar to 120px */
-    .w3-sidebar {width: 120px;background: #222;}
-    /* Add a left margin to the "page content" that matches the width of the sidebar (120px) */
-    #main {margin-left: 120px}
-    /* Remove margins from "page content" on small screens */
-    @media only screen and (max-width: 600px) {#main {margin-left: 0}}
-
-    path.domain { stroke:teal; }
-.tick text { stroke: teal; font-size: larger; }
-.c3-legend-item text { stroke: teal; }
-.c3-axis{stroke: teal;}
-.c3 .c3-axis-x path,
-.c3 .c3-axis-x line {
-  stroke: white;
+// helper function to process fhir resource to get the patient name.
+function getPatientName(pt) {
+  if (pt.name) {
+    var names = pt.name.map(function(name) {
+      return name.given.join(" ") + " " + name.family;
+    });
+    return names.join(" / ");
+  } else {
+    return "anonymous";
+  }
 }
 
-.c3 .c3-axis-y path,
-.c3 .c3-axis-y line {
-  stroke: white;
+// display the patient name gender and dob in the index page
+function displayPatient(pt) {
+  document.getElementById('patient_name').innerHTML = getPatientName(pt);
+  document.getElementById('gender').innerHTML = pt.gender;
+  document.getElementById('patient_name_top').innerHTML = getPatientName(pt);
 }
-</style>
 
 
+//helper function to get quanity and unit from an observation resoruce.
+function getQuantityValueAndUnit(ob) {
+  if (typeof ob != 'undefined' &&
+    typeof ob.valueQuantity != 'undefined' &&
+    typeof ob.valueQuantity.value != 'undefined' &&
+    typeof ob.valueQuantity.unit != 'undefined') {
+    return Number(parseFloat((ob.valueQuantity.value)).toFixed(2)) + ' ' + ob.valueQuantity.unit;
+  } else {
+    return undefined;
+  }
+}
 
-</head>
-<body  class="w3-black">
-    <!-- Icon Bar (Sidebar - hidden on small screens) -->
-    <nav class="w3-sidebar w3-bar-block w3-small w3-hide-small w3-center">
-      <a href="#home" class="w3-bar-item w3-button w3-padding-large w3-black">
-        <i class="fa fa-home w3-xxlarge"></i>
-        <p>HOME</p>
-      </a>
-      <a href="#about" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
-        <i class="fa fa-user w3-xxlarge"></i>
-        <p>ABOUT</p>
-      </a>
-      <a href="#readings" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
-        <i class="fa fa-eye w3-xxlarge"></i>
-        <p>READINGS</p>
-      </a>
-      <a href="#charts" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
-        <i class="fa fa-line-chart" w3-xxlarge"></i>
-        <p>CHARTS</p>
-      </a>
-      <button id="downloadbtn" onclick="downloadRecord()" class="w3-bar-item w3-button w3-padding-large w3-hover-black">
-        <i class="fa fa-download w3-xxlarge"></i>
-        <p>DOWNLOAD RECORD</p>
-      </button>
-    </nav>
+// helper function to get both systolic and diastolic bp
+function getBloodPressureValue(BPObservations, typeOfPressure) {
+  var formattedBPObservations = [];
+  BPObservations.forEach(function(observation) {
+    var BP = observation.component.find(function(component) {
+      return component.code.coding.find(function(coding) {
+        return coding.code == typeOfPressure;
+      });
+    });
+    if (BP) {
+      observation.valueQuantity = BP.valueQuantity;
+      formattedBPObservations.push(observation);
+    }
+  });
 
-    <!-- Navbar on small screens (Hidden on medium and large screens) -->
-    <div class="w3-top w3-hide-large w3-hide-medium" id="myNavbar">
-      <div class="w3-bar w3-black w3-opacity w3-hover-opacity-off w3-center w3-small">
-        <a href="#home" class="w3-bar-item w3-button" style="width:25% !important">HOME</a>
-        <a href="#about" class="w3-bar-item w3-button" style="width:25% !important">ABOUT</a>
-        <a href="#readings" class="w3-bar-item w3-button" style="width:25% !important">READINGS</a>
-        <a href="#charts" class="w3-bar-item w3-button" style="width:25% !important">CHARTS</a>
-        <button id="downloadbtn" onclick="downloadRecord()" class="w3-bar-item w3-button" style="width:25% !important">DOWNLOADS</button>
-      </div>
-    </div>
+  return getQuantityValueAndUnit(formattedBPObservations[0]);
+}
 
-    <!-- Page Content -->
-  <div class="w3-padding-large" id="home">
-    <!-- Header/Home -->
-    <header class="w3-container w3-padding-32 w3-center w3-black" id="home">
-      <h1 class="w3-jumbo" id="patient_top"><span class="w3-hide-small">Welcome</h1>
-      
-      <h2>Let's keep your heart healthy</h2>
-      <img src="./lib/bg-heart.jpg" alt="boy" class="w3-image" width="992" height="1108">
-      
-    </header>
-  </div>
-
-  <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="about">
-      <div class="w3-container  w3-text-teal w3-margin-bottom">
-        <h2 class="w3-text-white w3-padding-16"><b>My Profile</b></h2>
-        <div class="w3-container" style="display: flex;">
-          <h4 id ="patient_name" class="w3-text-grey">Gender</h6>
-        </div>
-        <div class="w3-container" style="display: flexbox;">
-          <h6 id ="gender" class="w3-text-grey">Gender</h6>
-          <span>  </span>
-          <h6 id ="dob" class="w3-text-grey">DOB</h6>
-          
-        </div>
-      </div>
+// create a patient object to initalize the patient
+function defaultPatient() {
+          return {
+          height: {
+          value: ''
+        },
+          weight: {
+          value: ''
+        },
+          sys: {
+          value: ''
+        },
+          dia: {
+          value: ''
+        },
         
 
-        <div class="w3-container  w3-text-teal w3-margin-bottom">
-          
-          <div class="w3-container w3-cell" style="display: block;">
-            <h2 class="w3-text-grey w3-padding-16"><b>Vitals</b></h2>
-            <div class="w3-container">
-            <h6>Weight</h6>
-              <h6 id="weight"></h6>
-            <h6>Height</h6>
-              <h6 id="height"></h6>
-            </div>
-          </div>
+        };
+}
 
-          <div class="w3-container w3-cell w3-text-teal w3-margin-bottom" style="display:block;">
-            <h2 class="w3-text-grey w3-padding-16">Conditions</h2>
-            <div class="w3-container">
-              <h6 id="cond_list"></h6>
-              
-            </div>
-          </div>
-        </div>
-  </div>
+//function to display the observation values you will need to update this
+function displayObservation(obs) {
+    weight.innerHTML = obs.weight;
+    height.innerHTML = obs.height;
+
+    document.getElementById('height').innerHTML = obs.height;
+    document.getElementById('weight').innerHTML = obs.weight;
+
+}
+
+let PatientData = new Array();
+let datas_weight = new Array();
+let data_time = new Array();
+
+
+
+let datas_sys = new Array();
+let datas_dia =new Array();
+let data_t = new Array();
+let patient_id = '';
+
+//once fhir client is authorized then the following functions can be executed
+FHIR.oauth2.ready().then(function(client) {
+
+  // get patient object and then display its demographics info in the banner
+  client.request(`Patient/${client.patient.id}`).then(
+    function(patient) {
+      displayPatient(patient);
+      console.log(patient);
+    }
+  );
+
+  // get observation resoruce values
+  // you will need to update the below to retrive the weight and height values
   
-            
-     
+   patient_id = client.patient.id;
+  var query = new URLSearchParams();
 
-      <div class="w3-container w3-text-teal " style="display: none;" >
-            <h2 class="w3-text-grey w3-padding-16">Active Medications</h2>
-            <div class="w3-container">
-              <h6 id="med_list"></h6>
-              
-            </div>
-        </div>
+  query.set("patient", client.patient.id);
+  query.set("_count", 100);
+  query.set("_sort", "-date");
+  query.set("code", [
+    'http://loinc.org|8462-4',
+    'http://loinc.org|8480-6',
+    'http://loinc.org|55284-4',
+    'http://loinc.org|3141-9',
+    'http://loinc.org|29463-7',
+    'http://loinc.org|8302-2',
+  ].join(","));
 
-    </div>
+  client.request("Observation?" + query, {
+    pageLimit: 0,
+    flat: true
+  }).then(
+    function(ob) {
 
-    
-    <!-- Readings Section -->
-    <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="readings">
-      
-      <div class="w3-container">
-        <h2 class="w3-text-grey w3-padding-16">READINGS</h2>
-        <p>Show readings for the month : <input type="month" id="datepicker"></p> <span> </span><button class="w3-btn w3-round w3-teal" id="filterBtn" onclick="filterReadings()">Submit</button>
-        
-        <div id="myDynamicTable"></div>
+      // group all of the observation resoruces by type into their own
+      var byCodes = client.byCodes(ob, 'code');
+      var systolicbp = getBloodPressureValue(byCodes('55284-4'), '8480-6');
+      var diastolicbp = getBloodPressureValue(byCodes('55284-4'), '8462-4');
+      var height = byCodes('8302-2');
+      var weight = byCodes('29463-7');
 
-      </div>
+      // create patient object
+      var p = defaultPatient();
 
-      <div class="w3-container w3-margin-bottom">
-      <p class="w3-text-teal w3-large">Add new reading</p> 
-      <div id="myPopup">
-        <div>	 
-          <p>Systolic*</p>
-          <input type="text"  id="systolic">
-        </div>
-      
-        <div>
-          <p>Diastolic*</p>
-          <input type="text" id="diastolic">
-        </div>
+      // set patient value parameters to the data pulled from the observation resoruce
+      if (typeof systolicbp != 'undefined') {
+        p.sys = systolicbp;
+      } else {
+        p.sys = 'undefined'
+      }
+
+      if (typeof diastolicbp != 'undefined') {
+        p.dia = diastolicbp;
+      } else {
+        p.dia = 'undefined'
+      }
+      p.height = getQuantityValueAndUnit(height[0]);
+      p.weight = getQuantityValueAndUnit(weight[0]);
+      displayObservation(p);
+  });
+
+ 
+	const rxnorm = "http://www.nlm.nih.gov/research/umls/rxnorm";
+    //const client1 = new FHIR.client("https://r3.smarthealthit.org");
+    const getPath = client.getPath;
+
+    function displayMedication(med) {
+    for (i of med) {
+		  document.getElementById("med_list")
+			.innerHTML += i + "<br>";
+    }
+  }
+
+    function getMedicationName(medCodings = []) {
+      let coding = medCodings.find(c => c.system === rxnorm);
+      return coding && coding.display || "Unnamed Medication(TM)";
+    }
+
+    let data = new Array();
+
+    let query2 = new URLSearchParams();
+    query2.set("patient", client.patient.id);
+    client.request("MedicationRequest?" + query2, {
+    resolveReferences: "medicationReference"
+})
+    .then(data => data.entry.map(item => getMedicationName(
+    getPath(item, "resource.medicationCodeableConcept.coding") ||
+    getPath(item, "resource.medicationReference.code.coding")
+    ))).then(displayMedication,displayMedication);
 
 
-        <div class="badges">
-          <button class="w3-button w3-circle w3-teal w3-padding-large" id="send" onclick="addObservation()">+</button></br>
-        </div>
 
-      </div>
-      </div>
-      
-      
-    </div>
+    let cond_query = new URLSearchParams();
+    cond_query.set("patient",client.patient.id);
+    cond_query.set("_count", 3);
+    client.request("Condition?" +cond_query,{
+        pageLimit:0,
+        flat:true
+    }).then(
+        function(cond){
+           // console.log(cond);
+            for(let c of cond){
+                document.getElementById("cond_list").innerHTML += c.code.text +"<br>";
+            }
 
-    <!-- Charts Section -->
-    <div class="w3-content w3-justify w3-text-grey w3-padding-64" id="charts">
-      <div class="w3-container">
-
-        <h2 class="w3-text-grey w3-padding-16">CHART</h2>
-        <button id="displayBPChartbtn" onclick="displayBPChart()">View Chart</button>
-          <div id ="chart"></div>
-      </div>
-    </div>
+        }
+    )
 
    
-
-  <footer class="w3-container w3-teal w3-center w3-margin-top">
-    <p><a href="./terms.html" target="_blank">Terms and Conditions</a></p>
-    <p><a href="./Faq.html">FAQ</a></p>
-  </footer>
+    let query4 = new URLSearchParams();
     
+    query4.set("patient", client.patient.id);
+    query4.set("_count", 100);
+    query4.set("_sort", "-date");
+    query4.set("code", [
+      'http://loinc.org|55284-4',
+        'http://loinc.org|8462-4',
+        'http://loinc.org|8480-6',
+    ].join(","));
+    
+    client.request("Observation?" + query4, {
+      pageLimit: 0,
+      flat: true
+    }).then(
+          function(ob) {
+    
+            // group all of the observation resoruces by type into their own
+            let byCodes = client.byCodes(ob, 'code');
+            let blood_pressure = byCodes('55284-4');
+		   
+            for ( bp of blood_pressure) { 
+            
+						PatientData.push(bp);
+						
+						let date =  bp.effectiveDateTime;
+						 
+						var dateTime = document.getElementById("datepicker").value;//new Date().getFullYear();
+ 
+						let dateFormat = date.substring(0, date.length - 6);
+						
+						let parseTime = d3.time.format("%Y-%m-%dT%H:%M:%S").parse(dateFormat);
+						 
+                             
+						var comp = bp.component;
+									  
+						for(b of comp){
 
-</body>
-</html>
+								//console.log("Code is --------"+b.code.coding[0].code);
+								let value = b.valueQuantity.value;
+								displayValue = String(value).substring(0,3);
+								if (b.code.coding[0].code !== undefined && b.code.coding[0].code == '8462-4' && typeof(value)!='undefined' ){
+								datas_dia.push(displayValue);
+								data_t.push(parseTime);
+								} 
+								if (b.code.coding[0].code !== undefined && b.code.coding[0].code == '8480-6' && typeof(value)!='undefined'){
+								datas_sys.push(displayValue);
+								data_t.push(parseTime);
+							
+								} 
+
+						}
+   
+            }  
+          });
+
+function downloadRecord(){
+    //getCompleteRecord(client);
+    console.log("Patient Data is "+PatientData.length);
+
+    if(PatientData.length>0)
+        downloadObjectAsJson(PatientData, "Medical_Record");
+    else
+        alert("There is no record");
+}
+
+
+function downloadObjectAsJson(exportObj, exportName) {
+    var dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(exportObj));
+    var downloadAnchorNode = document.createElement('a');
+    downloadAnchorNode.setAttribute("href", dataStr);
+    downloadAnchorNode.setAttribute("download", exportName + ".json");
+    document.body.appendChild(downloadAnchorNode); // required for firefox
+    downloadAnchorNode.click();
+    downloadAnchorNode.remove();
+}
+
+function displayBPChart() {
+
+    //document.getElementById("chartText").innerHTML = "Blood Pressure Graph"
+    let chart = c3.generate({
+
+        data: {
+            x: 'x',
+            json: {
+                x: data_t,
+                systolic: datas_sys,
+                diastolic: datas_dia
+
+            },
+
+        },
+
+        axis: {
+            x: {
+                type: 'timeseries',
+                tick: {
+                    format: '%m-%d-%Y',
+
+                },
+                label: { // ADD
+                    text: 'Date',
+                    position: 'outer-center'
+                }
+
+            },
+            y: {
+                tick: {
+                    format: d3.format("s")
+                },
+                label: { // ADD
+                    text: 'Blood Pressure',
+                    position: 'outer-middle'
+                }
+            },
+        }
+
+
+    });
+
+}
+
+function addObservation(){
+
+    let systolic_value = document.getElementById("systolic");
+    let diastolic_value = document.getElementById("diastolic");
+    if(systolic_value==" " ||diastolic_value==" "){
+      return;
+    }
+    if(typeof(systolic_value)=='undefined' || typeof(diastolic_value)=='undefined'){
+      return;
+    }
+
+          let cat_coding ={
+              system: "http://terminology.hl7.org/CodeSystem/observation-category",
+              code: "vital-signs",
+              display: "vital-signs"
+          }
+          let cod_coding ={
+              system: "http://loinc.org",
+              code: "55284-4",
+              display: "Blood Pressure"
+          }
+          let code ={
+              coding : cod_coding,
+              text : "Blood Pressure"
+          }
+
+          let subject="Patient/"+patient_id
+  
+           var	component= [
+                        {"code": {
+                        "coding": 
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8462-4",
+                            "display": "Diastolic Blood Pressure"
+                        }
+                        ,
+                        "text": "Diastolic Blood Pressure"
+                      },
+                      "valueQuantity": {
+                        "value": diastolic_value,
+                        "unit": "mm[Hg]",
+                        "system": "http://unitsofmeasure.org",
+                        "code": "mm[Hg]"
+                      }},{"code": {
+                        "coding": 
+                        {
+                            "system": "http://loinc.org",
+                            "code": "8480-6",
+                            "display": "Systolic Blood Pressure"
+                        }
+                        ,
+                        "text": "Systolic Blood Pressure"
+                      },
+                      "valueQuantity": {
+                        "value": systolic_value,
+                        "unit": "mm[Hg]",
+                        "system": "http://unitsofmeasure.org",
+                        "code": "mm[Hg]"
+                      }}];
+     var ob ={
+              resourceType: "Observation",
+              status : "final",
+              category : cat_coding,
+              code : code,
+              subject: {
+                  "reference": "Patient/"+client.patient.id
+                },
+              effectiveDateTime : new Date(),
+              issued : new Date(),
+              component : component
+            
+          };
+
+
+      var test = client.create(ob).then(function(ob){
+
+          console.log("Patient/"+patient_id);
+          console.log(ob);
+      });
+        console.log(test);
+
+
+}
+
+
+function filterReadings(){
+
+        
+        var dateTime = document.getElementById("datepicker").value;
+        console.log("Date Time is :"+dateTime);
+
+        document.getElementById("myDynamicTable").innerHTML=" ";
+
+        let query4 = new URLSearchParams();
+        query4.set("patient", client.patient.id);
+        query4.set("_count", 100);
+        query4.set("_sort", "-date");
+        query4.set("code", [
+        'http://loinc.org|55284-4',
+            'http://loinc.org|8462-4',
+            'http://loinc.org|8480-6',
+        ].join(","));
+        
+        FHIR.client.request("Observation?" + query4, {
+        pageLimit: 0,
+        flat: true
+        }).then(
+            function(ob) {
+    
+            // group all of the observation resoruces by type into their own
+            let byCodes = client.byCodes(ob, 'code');
+            let blood_pressure = byCodes('55284-4');
+           // console.log("Inside parseTime");
+		   
+		   
+		   /////CODE FOR TABLE OF READINGS//////
+			var myTableDiv = document.getElementById("myDynamicTable");
+
+			var table = document.createElement('TABLE');
+			table.border='1';
+
+			var tableBody = document.createElement('TBODY');
+			table.appendChild(tableBody);
+             
+           
+			var tr = document.createElement('TR');
+			tableBody.appendChild(tr);
+
+			var td = document.createElement('TH');
+			td.width='75';
+			td.appendChild(document.createTextNode("Date"));
+			tr.appendChild(td);
+			var td = document.createElement('TH');
+			td.width='75';
+			td.appendChild(document.createTextNode("Systolic"));
+			tr.appendChild(td);
+			var td = document.createElement('TH');
+			td.width='75';
+			td.appendChild(document.createTextNode("Diastolic"));
+			tr.appendChild(td);
+             
+        
+            for ( bp of blood_pressure) { 
+            
+						PatientData.push(bp);
+						//	console.log(bp.effectiveDateTime);
+						let date =  bp.effectiveDateTime;
+                        console.log("Date is "+date);
+                        
+                        let n = date.indexOf(dateTime);
+                        console.log(n);
+
+                        
+						 
+						if(date.indexOf(dateTime)==0){
+
+                            let dateFormat = date.substring(0, date.length - 6);
+						
+                        let parseTime = d3.time.format("%Y-%m-%dT%H:%M:%S").parse(dateFormat);
+                        console.log("Parse Time is :"+parseTime);
+						  
+              
+						var tr = document.createElement('TR');
+						tableBody.appendChild(tr)
+           
+               
+						var comp = bp.component;
+						var td = document.createElement('TD');
+						td.width='250';
+						td.appendChild(document.createTextNode(parseTime));
+						tr.appendChild(td);
+			  
+						for(b of comp){
+
+								var td = document.createElement('TD');
+								td.width='75';
+
+
+								//console.log("Code is --------"+b.code.coding[0].code);
+								let value = b.valueQuantity.value;
+                                displayValue = String(value).substring(0,3);
+                                
+								if (b.code.coding[0].code !== undefined && b.code.coding[0].code == '8462-4' && typeof(value)!='undefined' ){
+								var td = document.createElement('TD');
+								td.appendChild(document.createTextNode(displayValue));
+								tr.appendChild(td);
+                                } 
+                                
+								if (b.code.coding[0].code !== undefined && b.code.coding[0].code == '8480-6' && typeof(value)!='undefined'){
+								td.appendChild(document.createTextNode(displayValue));
+								tr.appendChild(td);
+								} 
+
+
+
+						}
+
+					  
+					   myTableDiv.appendChild(table);
+                            
+                        }
+                        else{
+                            continue;
+                        }
+
+            }  
+          });
+}
